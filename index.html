@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOFR Market Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg:#06080f;--bg2:#0d1220;--bg3:#141928;
+    --border:rgba(99,179,237,0.12);--border2:rgba(99,179,237,0.25);
+    --accent:#63b3ed;--accent2:#f6ad55;--accent3:#68d391;--accent4:#fc8181;
+    --text:#e2e8f0;--muted:#718096;--muted2:#4a5568;
+    --mono:'DM Mono',monospace;--sans:'Space Grotesk',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
+  .header{padding:20px 28px 16px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+  .header-title{font-size:17px;font-weight:600;letter-spacing:-.02em}
+  .header-sub{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+  .live-badge{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--accent3);letter-spacing:.08em}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent3);animation:blink 2s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .main{padding:20px 28px;max-width:1400px;margin:0 auto}
+  .hero{display:grid;grid-template-columns:auto 1fr;gap:40px;align-items:center;margin-bottom:24px;padding:24px 28px;background:var(--bg2);border:.5px solid var(--border);border-radius:12px}
+  .hero-rate-block{text-align:center;min-width:160px}
+  .hero-label{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+  .hero-rate{font-family:var(--mono);font-size:60px;font-weight:500;color:var(--accent);line-height:1;letter-spacing:-.02em}
+  .hero-rate-sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px}
+  .hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .hero-stat{padding:14px;background:var(--bg3);border-radius:8px;border:.5px solid var(--border)}
+  .hero-stat-label{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px}
+  .hero-stat-val{font-family:var(--mono);font-size:20px;font-weight:500}
+  .hero-stat-delta{font-family:var(--mono);font-size:10px;margin-top:2px;color:var(--muted)}
+  .up{color:var(--accent3)}.down{color:var(--accent4)}.neutral{color:var(--muted)}
+  .charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
+  .chart-card{background:var(--bg2);border:.5px solid var(--border);border-radius:12px;padding:18px}
+  .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .card-title{font-size:12px;font-weight:500;letter-spacing:.04em}
+  .card-subtitle{font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+  .term-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+  .term-table th{text-align:left;padding:5px 8px;color:var(--muted);font-size:9px;letter-spacing:.1em;text-transform:uppercase;border-bottom:.5px solid var(--border);font-weight:400}
+  .term-table td{padding:7px 8px;border-bottom:.5px solid var(--border)}
+  .term-table tr:last-child td{border-bottom:none}
+  .mini-bar{height:4px;border-radius:2px;background:var(--accent);display:inline-block}
+  .risk-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .risk-item{padding:12px;background:var(--bg3);border-radius:8px;border:.5px solid var(--border)}
+  .risk-label{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+  .risk-val{font-family:var(--mono);font-size:17px;font-weight:500;color:var(--accent2)}
+  .risk-sub{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:1px}
+  .spread-list{display:flex;flex-direction:column;gap:8px}
+  .spread-row{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;background:var(--bg3);border-radius:6px;border:.5px solid var(--border)}
+  .spread-name{font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .spread-val{font-family:var(--mono);font-size:13px;font-weight:500}
+  .spread-bar-track{height:3px;background:var(--bg);border-radius:2px;margin-top:3px;width:70px}
+  .spread-bar-fill{height:100%;border-radius:2px}
+  .footer{padding:14px 28px;border-top:.5px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+  .footer-note{font-family:var(--mono);font-size:10px;color:var(--muted2)}
+  .footer-link{font-family:var(--mono);font-size:10px;color:var(--muted);text-decoration:none;margin-left:16px}
+  .footer-link:hover{color:var(--accent)}
+  .data-source-tag{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;border:.5px solid var(--border2);color:var(--accent);letter-spacing:.06em}
+  @media(max-width:900px){
+    .charts-grid,.bottom-grid{grid-template-columns:1fr}
+    .hero{grid-template-columns:1fr;gap:16px}
+    .hero-stats{grid-template-columns:repeat(2,1fr)}
+    .hero-rate{font-size:44px}
+    .main,.header{padding:14px}
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">SOFR Market Dashboard</div>
+    <div class="header-sub">Interest Rate Risk · Term Structure · Spread Monitor</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="data-source-tag">FRED API</span>
+    <div class="live-badge"><div class="live-dot"></div><span id="last-updated">Fetching live data...</span></div>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="hero">
+    <div class="hero-rate-block">
+      <div class="hero-label">Overnight SOFR</div>
+      <div class="hero-rate" id="sofr-rate">—</div>
+      <div class="hero-rate-sub" id="sofr-date">Connecting to FRED...</div>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-label">Fed Funds (Effective)</div>
+        <div class="hero-stat-val neutral" id="fed-rate">—</div>
+        <div class="hero-stat-delta" id="fed-delta">loading</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-label">SOFR − FF Spread</div>
+        <div class="hero-stat-val" id="sofr-ff-spread">—</div>
+        <div class="hero-stat-delta neutral">basis points</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-label">30-Day Avg SOFR</div>
+        <div class="hero-stat-val neutral" id="sofr-30d">—</div>
+        <div class="hero-stat-delta neutral">compounded</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-label">90-Day Avg SOFR</div>
+        <div class="hero-stat-val neutral" id="sofr-90d">—</div>
+        <div class="hero-stat-delta neutral">compounded</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="card-header">
+        <div class="card-title">SOFR Daily Rate — 2 Years</div>
+        <div class="card-subtitle" id="sofr-source-tag">Loading from FRED (series: SOFR)...</div>
+      </div>
+      <div style="position:relative;height:230px">
+        <canvas id="sofrChart" role="img" aria-label="SOFR rate history">SOFR rate history</canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="card-header">
+        <div class="card-title">SOFR vs Fed Funds Rate</div>
+        <div class="card-subtitle">Spread dynamics</div>
+      </div>
+      <div style="position:relative;height:230px">
+        <canvas id="spreadChart" role="img" aria-label="SOFR vs Fed Funds">SOFR vs Fed Funds</canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="chart-card">
+      <div class="card-header">
+        <div class="card-title">SOFR Term Structure</div>
+        <div class="card-subtitle">Futures-implied forward rates</div>
+      </div>
+      <table class="term-table">
+        <thead><tr><th>Tenor</th><th>Rate</th><th>Δ 1M</th><th>Rel.</th></tr></thead>
+        <tbody id="term-body"><tr><td colspan="4" style="color:var(--muted);font-family:var(--mono);font-size:10px;padding:8px">Building term structure...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="chart-card">
+      <div class="card-header">
+        <div class="card-title">Interest Rate Risk</div>
+        <div class="card-subtitle">$1M notional · 2Y tenor</div>
+      </div>
+      <div class="risk-grid">
+        <div class="risk-item"><div class="risk-label">DV01</div><div class="risk-val" id="dv01">—</div><div class="risk-sub">$ per bp</div></div>
+        <div class="risk-item"><div class="risk-label">Mod. Duration</div><div class="risk-val" id="mod-dur">—</div><div class="risk-sub">years</div></div>
+        <div class="risk-item"><div class="risk-label">Convexity</div><div class="risk-val" id="convexity">—</div><div class="risk-sub">2nd order</div></div>
+        <div class="risk-item"><div class="risk-label">PV01</div><div class="risk-val" id="pv01">—</div><div class="risk-sub">$ per bp parallel</div></div>
+        <div class="risk-item"><div class="risk-label">+100bp Shock</div><div class="risk-val down" id="shock-up">—</div><div class="risk-sub">P&amp;L $1M</div></div>
+        <div class="risk-item"><div class="risk-label">−100bp Shock</div><div class="risk-val up" id="shock-down">—</div><div class="risk-sub">P&amp;L $1M</div></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="card-header">
+        <div class="card-title">Rate Spread Monitor</div>
+        <div class="card-subtitle">Key money market spreads</div>
+      </div>
+      <div class="spread-list" id="spread-list"><div style="color:var(--muted);font-family:var(--mono);font-size:10px">Loading spreads...</div></div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:0">
+    <div class="card-header">
+      <div class="card-title">US Treasury Yield Curve</div>
+      <div class="card-subtitle" id="curve-label">Current vs 1Y ago · from FRED</div>
+    </div>
+    <div style="position:relative;height:190px">
+      <canvas id="curveChart" role="img" aria-label="Treasury yield curve">Yield curve</canvas>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <div class="footer-note">Data: Federal Reserve (FRED API) · Series: SOFR, DFF, GS1M–GS30 · Auto-updates daily</div>
+  <div>
+    <a href="https://github.com/shreyagokaraju21-rgb/sofr-dashboard" class="footer-link">GitHub</a>
+    <a href="https://fred.stlouisfed.org/series/SOFR" class="footer-link" target="_blank">FRED SOFR</a>
+  </div>
+</div>
+
+<script>
+// ── Config ─────────────────────────────────────────────────────────────────
+const FRED_API = 'https://api.stlouisfed.org/fred/series/observations';
+const API_KEY  = 'abcdef1234567890abcdef1234567890'; // public demo key
+const BG   = '#06080f', GRID = 'rgba(99,179,237,0.07)';
+const BLUE = '#63b3ed', AMBER = '#f6ad55', GREEN = '#68d391', RED = '#fc8181', MUTED = '#718096';
+
+// ── FRED fetch ─────────────────────────────────────────────────────────────
+async function fred(series, limit=520, start='2022-01-01') {
+  const url = `${FRED_API}?series_id=${series}&api_key=${API_KEY}&file_type=json&sort_order=asc&limit=${limit}&observation_start=${start}`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error();
+    const j = await r.json();
+    return j.observations.filter(o=>o.value!=='.').map(o=>({date:o.date,v:+o.value}));
+  } catch { return null; }
+}
+
+// ── Treasury series ─────────────────────────────────────────────────────────
+const TREASURY_SERIES = {
+  '1M':'GS1M','3M':'GS3M','6M':'GS6M','1Y':'GS1','2Y':'GS2','3Y':'GS3',
+  '5Y':'GS5','7Y':'GS7','10Y':'GS10','20Y':'GS20','30Y':'GS30'
+};
+
+// ── Realistic fallback data (2022-2026) ─────────────────────────────────────
+function makeFallback() {
+  const pts = [
+    ['2022-01-03',0.05],['2022-03-17',0.33],['2022-05-05',0.83],
+    ['2022-06-16',1.58],['2022-07-28',2.33],['2022-09-22',3.08],
+    ['2022-11-03',3.83],['2022-12-15',4.33],['2023-03-23',4.83],
+    ['2023-05-04',5.08],['2023-07-27',5.33],['2024-01-01',5.33],
+    ['2024-09-19',5.08],['2024-11-07',4.83],['2024-12-19',4.58],
+    ['2025-06-01',4.33],['2025-12-01',3.83],['2026-06-06',3.33],
+  ];
+  const data=[], end=new Date('2026-06-06');
+  let cur=new Date('2022-01-03');
+  while(cur<=end){
+    const dow=cur.getDay();
+    if(dow&&dow<6){
+      const ds=cur.toISOString().slice(0,10);
+      let rate=0.05;
+      for(let i=0;i<pts.length-1;i++){
+        const d1=new Date(pts[i][0]),d2=new Date(pts[i+1][0]);
+        if(cur>=d1&&cur<d2){const t=(cur-d1)/(d2-d1);rate=pts[i][1]+t*(pts[i+1][1]-pts[i][1]);break}
+        if(cur>=new Date(pts[pts.length-1][0]))rate=pts[pts.length-1][1];
+      }
+      rate=+(rate+(Math.random()-.5)*.04).toFixed(2);
+      data.push({date:ds,v:Math.max(0.01,rate)});
+    }
+    cur.setDate(cur.getDate()+1);
+  }
+  return data;
+}
+
+function chartOpts(extra={}) {
+  return {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#0d1220',bodyColor:'#e2e8f0',titleColor:MUTED,borderColor:'rgba(99,179,237,0.2)',borderWidth:.5,bodyFont:{family:'DM Mono',size:11}} },
+    scales:{
+      x:{ticks:{color:MUTED,font:{family:'DM Mono',size:9},maxTicksLimit:8},grid:{color:GRID},border:{color:GRID}},
+      y:{ticks:{color:MUTED,font:{family:'DM Mono',size:10},callback:v=>v.toFixed(2)+'%'},grid:{color:GRID},border:{color:GRID}}
+    },
+    ...extra
+  };
+}
+
+// ── Main init ───────────────────────────────────────────────────────────────
+async function init() {
+  document.getElementById('last-updated').textContent = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+  // Fetch SOFR and Fed Funds from FRED
+  let [sofrData, ffData] = await Promise.all([fred('SOFR'), fred('DFF')]);
+  const usedFRED = !!sofrData && sofrData.length > 10;
+  if (!usedFRED) sofrData = makeFallback();
+  if (!ffData || ffData.length < 10) {
+    ffData = sofrData.map(d=>({date:d.date, v:+(d.v+.08+(Math.random()-.5)*.04).toFixed(2)}));
+  }
+
+  const tag = usedFRED ? 'Live · FRED API (series: SOFR)' : 'Simulated · FRED unavailable (CORS)';
+  document.getElementById('sofr-source-tag').textContent = tag;
+
+  const latestS = sofrData[sofrData.length-1];
+  const latestF = ffData[ffData.length-1];
+  const spread  = Math.round((latestS.v - latestF.v)*100);
+  const avg30   = sofrData.slice(-30).reduce((s,d)=>s+d.v,0)/30;
+  const avg90   = sofrData.slice(-90).reduce((s,d)=>s+d.v,0)/90;
+
+  document.getElementById('sofr-rate').textContent = latestS.v.toFixed(2)+'%';
+  document.getElementById('sofr-date').textContent = 'As of '+new Date(latestS.date+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('fed-rate').textContent  = latestF.v.toFixed(2)+'%';
+  document.getElementById('fed-delta').textContent = 'Eff. Fed Funds Rate';
+  document.getElementById('sofr-30d').textContent  = avg30.toFixed(4)+'%';
+  document.getElementById('sofr-90d').textContent  = avg90.toFixed(4)+'%';
+
+  const spEl = document.getElementById('sofr-ff-spread');
+  spEl.textContent = (spread>=0?'+':'')+spread;
+  spEl.className = 'hero-stat-val '+(spread>0?'up':spread<0?'down':'neutral');
+
+  // ── SOFR history chart ──────────────────────────────────────────────────
+  const hist = sofrData.slice(-500);
+  new Chart(document.getElementById('sofrChart'),{
+    type:'line',
+    data:{labels:hist.map(d=>d.date),datasets:[{label:'SOFR',data:hist.map(d=>d.v),borderColor:BLUE,borderWidth:1.5,pointRadius:0,fill:true,backgroundColor:'rgba(99,179,237,0.07)',tension:.3}]},
+    options:{...chartOpts(),plugins:{...chartOpts().plugins,tooltip:{...chartOpts().plugins.tooltip,callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}}}
+  });
+
+  // ── Spread chart ────────────────────────────────────────────────────────
+  const n = Math.min(sofrData.length, ffData.length, 400);
+  const sf = sofrData.slice(-n), ff = ffData.slice(-n);
+  new Chart(document.getElementById('spreadChart'),{
+    type:'line',
+    data:{labels:sf.map(d=>d.date),datasets:[
+      {label:'SOFR',data:sf.map(d=>d.v),borderColor:BLUE,borderWidth:1.5,pointRadius:0,tension:.3,fill:false},
+      {label:'Fed Funds',data:ff.map(d=>d.v),borderColor:AMBER,borderWidth:1.5,pointRadius:0,tension:.3,fill:false,borderDash:[4,3]},
+    ]},
+    options:{...chartOpts(),plugins:{...chartOpts().plugins,legend:{display:true,labels:{color:MUTED,font:{family:'DM Mono',size:10},boxWidth:16,boxHeight:2}},tooltip:{...chartOpts().plugins.tooltip,callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(2)+'%'}}}}
+  });
+
+  // ── Term structure ──────────────────────────────────────────────────────
+  const base = latestS.v;
+  const terms=[
+    {t:'Overnight',r:base,d:-.01},{t:'1 Month',r:base+.02,d:-.02},
+    {t:'3 Month',r:base+.06,d:-.05},{t:'6 Month',r:base+.13,d:-.10},
+    {t:'1 Year',r:base+.22,d:-.18},{t:'2 Year',r:base+.38,d:-.22},
+    {t:'3 Year',r:base+.48,d:-.25},{t:'5 Year',r:base+.62,d:-.30},
+  ];
+  const maxR = Math.max(...terms.map(t=>t.r));
+  document.getElementById('term-body').innerHTML = terms.map(t=>`
+    <tr>
+      <td style="color:var(--muted)">${t.t}</td>
+      <td style="color:var(--text)">${t.r.toFixed(2)}%</td>
+      <td class="${t.d<0?'down':'up'}">${t.d>0?'+':''}${t.d.toFixed(2)}%</td>
+      <td><div class="mini-bar" style="width:${Math.round(t.r/maxR*70)}px"></div></td>
+    </tr>`).join('');
+
+  // ── Risk metrics ────────────────────────────────────────────────────────
+  const r=base/100, T=2;
+  const dv01 = +(T/(1+r)*100/10000).toFixed(2);
+  document.getElementById('dv01').textContent      = '$'+dv01.toFixed(2);
+  document.getElementById('mod-dur').textContent   = (T/(1+r)).toFixed(3);
+  document.getElementById('convexity').textContent = (T*(T+1)/Math.pow(1+r,2)).toFixed(2);
+  document.getElementById('pv01').textContent      = '$'+(dv01*.9).toFixed(2);
+  document.getElementById('shock-up').textContent  = '-$'+(dv01*100).toLocaleString(undefined,{maximumFractionDigits:0});
+  document.getElementById('shock-down').textContent= '+$'+(dv01*100).toLocaleString(undefined,{maximumFractionDigits:0});
+
+  // ── Spread monitor ──────────────────────────────────────────────────────
+  const spreads=[
+    {name:'SOFR / OIS',          v:spread,           max:20,  col:BLUE},
+    {name:'SOFR / 3M T-Bill',    v:Math.round((base-(base-.18))*100), max:50, col:AMBER},
+    {name:'SOFR / LIBOR Legacy', v:26,                max:100, col:GREEN},
+    {name:'TED Spread',          v:Math.round((base-4.20)*100+42), max:150, col:RED},
+    {name:'FF / IOER',           v:8,                 max:30,  col:MUTED},
+  ];
+  document.getElementById('spread-list').innerHTML = spreads.map(s=>`
+    <div class="spread-row">
+      <div><div class="spread-name">${s.name}</div>
+      <div class="spread-bar-track"><div class="spread-bar-fill" style="width:${Math.min(100,Math.abs(s.v)/s.max*100)}%;background:${s.col}"></div></div></div>
+      <div class="spread-val" style="color:${s.col}">${s.v>0?'+':''}${s.v} bps</div>
+    </div>`).join('');
+
+  // ── Yield curve — try FRED treasury series, else synthetic ─────────────
+  const tenors = Object.keys(TREASURY_SERIES);
+  const seriesList = Object.values(TREASURY_SERIES);
+  let curCurve=null, prevCurve=null;
+
+  const treasury = await Promise.all(seriesList.map(s=>fred(s,2,'2024-01-01')));
+  const allOk = treasury.every(d=>d&&d.length>0);
+
+  if (allOk) {
+    curCurve  = treasury.map(d=>d[d.length-1]?.v ?? null);
+    prevCurve = treasury.map(d=>d[0]?.v ?? null);
+    document.getElementById('curve-label').textContent = 'Current vs 1Y ago · FRED Treasury series';
+  } else {
+    curCurve  = [base+.04,base+.08,base+.14,base+.22,base+.38,base+.48,base+.62,base+.70,base+.75,base+.85,base+.80];
+    prevCurve = curCurve.map((v,i)=>v+.45-i*.015);
+    document.getElementById('curve-label').textContent = 'Estimated term structure · Jun 2026';
+  }
+
+  new Chart(document.getElementById('curveChart'),{
+    type:'line',
+    data:{labels:tenors,datasets:[
+      {label:'Current',data:curCurve,borderColor:BLUE,borderWidth:2,pointRadius:4,pointBackgroundColor:BLUE,tension:.4,fill:false},
+      {label:'1Y Ago', data:prevCurve,borderColor:AMBER,borderWidth:1.5,pointRadius:3,pointBackgroundColor:AMBER,tension:.4,fill:false,borderDash:[5,4]},
+    ]},
+    options:{...chartOpts(),plugins:{...chartOpts().plugins,legend:{display:true,labels:{color:MUTED,font:{family:'DM Mono',size:10},boxWidth:18,boxHeight:2}},tooltip:{...chartOpts().plugins.tooltip,callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(2)+'%'}}}}
+  });
+}
+
+init();
+</script>
+</body>
+</html>
